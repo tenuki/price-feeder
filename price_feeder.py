@@ -22,7 +22,6 @@ from optparse import OptionParser
 import datetime
 import json
 from timeloop import Timeloop
-from web3 import Web3
 import boto3
 import time
 import decimal
@@ -30,10 +29,9 @@ from moneyonchain.networks import network_manager
 from moneyonchain.medianizer import MoCMedianizer, PriceFeed, RDOCMoCMedianizer, RDOCPriceFeed
 from moneyonchain.moc import MoCState
 from moneyonchain.rdoc import RDOCMoCState
+from moc_prices_source import get_price, BTC_USD, ALL
 
 # local imports
-from price_engines import PriceEngines
-
 import logging
 import logging.config
 
@@ -127,10 +125,21 @@ class PriceFeederJobBase:
         self.last_price = 0.0
         self.last_price_timestamp = datetime.datetime.now() - datetime.timedelta(seconds=300)
 
-        self.price_source = PriceEngines(self.options['networks'][self.config_network]['price_engines'],
-                                         log=log,
-                                         app_mode=self.app_mode,
-                                         min_prices=self.min_prices_source)
+        # coinpair
+        self.coinpair = BTC_USD
+        if 'coinpair' in self.options['networks'][self.config_network]:
+
+            def unformat(x):
+                s = str(x)
+                for sep in " /\|>.-":
+                    s = s.replace(sep, '')
+                return s.upper()
+
+            for c in ALL:
+                if unformat(c)==unformat(self.options['networks'][self.config_network]['coinpair']):
+                    self.coinpair = c
+                    break
+        log.info(f"Starting with coinpair: {self.coinpair}")
 
         self.connect()
 
@@ -241,6 +250,27 @@ class PriceFeederJobBase:
                 self.tl.stop()
                 break
 
+    def get_price(self):       
+
+        detail = {}
+        price = get_price(self.coinpair, detail=detail)
+
+        prices_source_count = 0
+        for e in detail['prices']:
+            if e['ok']:
+                prices_source_count += 1
+            else:
+                coinpair = e['coinpair']
+                exchange = e['description']
+                error    = e['error']
+                log.warning(f'{exchange} {coinpair} {error}')
+
+        if not(price) or prices_source_count < self.min_prices_source:
+            raise Exception(f"At least we need {self.min_prices_source} price sources.")
+
+        return price
+
+
 
 class PriceFeederJobRIF(PriceFeederJobBase):
 
@@ -264,19 +294,7 @@ class PriceFeederJobRIF(PriceFeederJobBase):
         self.contract_moc_state = RDOCMoCState(network_manager,
                                                contract_address=address_mocstate).from_abi()
 
-        address_contract_moc_medianizer = Web3.toChecksumAddress(
-            self.options['networks'][self.config_network]['addresses']['RIF_source_price_btc'])
-        self.contract_moc_medianizer = MoCMedianizer(network_manager,
-                                                     contract_address=address_contract_moc_medianizer).from_abi()
 
-    def get_price(self):
-
-        btc_usd_price = self.contract_moc_medianizer.price()
-        btc_rif_price = decimal.Decimal(self.price_source.prices_weighted_median(btc_price_assign=btc_usd_price))
-
-        usd_rif_price = btc_rif_price * btc_usd_price
-
-        return usd_rif_price
 
     def price_feed(self):
 
@@ -396,9 +414,6 @@ class PriceFeederJobMoC(PriceFeederJobBase):
         self.contract_moc_state = MoCState(network_manager,
                                            contract_address=address_mocstate).from_abi()
 
-    def get_price(self):
-
-        return decimal.Decimal(self.price_source.prices_weighted_median())
 
     def price_feed(self):
 
@@ -514,9 +529,6 @@ class PriceFeederJobETH(PriceFeederJobBase):
                                              contract_address=address_pricefeed,
                                              contract_address_moc_medianizer=address_medianizer).from_abi()
 
-    def get_price(self):
-
-        return decimal.Decimal(self.price_source.prices_weighted_median())
 
     def price_feed(self):
 
