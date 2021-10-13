@@ -13,9 +13,7 @@
       "app_mode": "RIF",
       "block_expiration": 600,
       "price_variation_write_blockchain": 0.001,
-      "price_engines": [
-        {"name": "binance_rif","ponderation": 1.0, "min_volume": 0.0, "max_delay": 0}
-      ],
+      "coinpair":"RIF/USD",
       "addresses": {
         "MoCState": "0x496eD67F77D044C8d9471fe86085Ccb5DC4d2f63",
         "MoCMedianizer": "0x9d4b2c05818A0086e641437fcb64ab6098c7BbEc",
