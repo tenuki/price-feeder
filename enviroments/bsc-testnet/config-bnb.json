@@ -1,0 +1,26 @@
+{
+  "backup_mode": false,
+  "backup_writes": 100,
+  "interval": 30,
+  "timeout": 60,
+  "timeout_request": 10,
+  "gas_price": 1000000000,
+  "gas_limit": 4000000,
+  "is_simulation": false,
+  "min_prices_source": 1,
+  "networks": {
+    "bscTestnet": {
+      "price_floor": "ema * 0.265",
+      "app_mode": "MoC",
+      "block_expiration": 600,
+      "price_variation_write_blockchain": 0.0005,
+      "coinpair": "BNB/USD",
+      "addresses": {
+        "MoCState": "",
+        "MoCMedianizer": "0xF934e563502BCE084eDd687E55f465E306f87841",
+        "PriceFeed": "0x05df99660CE06d2b4926f46E4e3Fd00635c6AD2a",
+        "RIF_source_price_btc": ""
+      }
+    }
+  }
+}
